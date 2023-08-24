@@ -11,8 +11,8 @@
 #endif
 #include "libretro.h"
 
-constexpr auto screenWidth = 256;
-constexpr auto screenHeight = 384;
+constexpr auto screenWidth = 64;
+constexpr auto screenHeight = 32;
 constexpr auto screenTotalPixels = screenWidth * screenHeight;
 constexpr auto audioSampleRate = 44100;
 
@@ -67,7 +67,7 @@ void retro_set_controller_port_device(unsigned port, unsigned device)
 void retro_get_system_info(struct retro_system_info *info)
 {
    memset(info, 0, sizeof(*info));
-   info->library_name     = "Libretro core";
+   info->library_name     = "Luchok fantasy console";
    info->library_version  = "0.1";
    info->need_fullpath    = true;
    info->valid_extensions = "";
