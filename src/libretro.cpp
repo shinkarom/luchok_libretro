@@ -11,6 +11,12 @@
 #endif
 #include "libretro.h"
 
+extern "C" {
+	#include "lua.h"
+	#include "lauxlib.h"
+	#include "lualib.h"
+}
+
 constexpr auto screenWidth = 64;
 constexpr auto screenHeight = 32;
 constexpr auto screenTotalPixels = screenWidth * screenHeight;
@@ -25,6 +31,8 @@ static float last_sample_rate;
 char retro_base_directory[4096];
 char retro_game_path[4096];
 
+lua_State* lua;
+
 static void fallback_log(enum retro_log_level level, const char *fmt, ...)
 {
    (void)level;
@@ -37,6 +45,15 @@ static void fallback_log(enum retro_log_level level, const char *fmt, ...)
 
 static retro_environment_t environ_cb;
 
+void createLua() {
+	lua = luaL_newstate();
+	luaL_openlibs(lua);
+}
+
+void deleteLua() {
+	lua_close(lua);
+}
+
 void retro_init(void)
 {
    frame_buf = new uint32_t[screenTotalPixels];
@@ -47,11 +64,14 @@ void retro_init(void)
       snprintf(retro_base_directory, sizeof(retro_base_directory), "%s", dir);
    }
    
+   createLua();
+   
 }
 
 void retro_deinit(void)
 {
    delete[] frame_buf;
+   deleteLua();
 }
 
 unsigned retro_api_version(void)
@@ -69,7 +89,7 @@ void retro_get_system_info(struct retro_system_info *info)
    memset(info, 0, sizeof(*info));
    info->library_name     = "Luchok fantasy console";
    info->library_version  = "0.1";
-   info->need_fullpath    = true;
+   info->need_fullpath    = false;
    info->valid_extensions = "";
 }
 
@@ -178,7 +198,7 @@ static void audio_set_state(bool enable)
 void retro_run(void)
 {
    update_input();
-
+	
 	video_cb(frame_buf, screenWidth, screenHeight, screenWidth*sizeof(uint32_t));
 
    bool updated = false;
@@ -210,6 +230,10 @@ bool retro_load_game(const struct retro_game_info *info)
    use_audio_cb = environ_cb(RETRO_ENVIRONMENT_SET_AUDIO_CALLBACK, &audio_cb);
 
    check_variables();
+
+	if(luaL_dostring(lua, (const char*)(info->data)) != LUA_OK) {
+		return false;
+	}
 
    (void)info;
    return true;
