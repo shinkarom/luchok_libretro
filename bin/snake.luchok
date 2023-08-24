@@ -116,6 +116,7 @@ function collision_with_wall()
 end
 
 function vblank()
+	cls()
     if scene == 0 then
         if not should_stop then
             frames = frames + 1
