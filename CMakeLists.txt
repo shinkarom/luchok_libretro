@@ -50,6 +50,7 @@ add_library(${LIBNAME} SHARED
 set_target_properties(${LIBNAME} PROPERTIES
     SOVERSION 1
     PUBLIC_HEADER src/libretro.h
-    LINKER_LANGUAGE CXX)
+    LINKER_LANGUAGE CXX
+	RUNTIME_OUTPUT_DIRECTORY ${PROJECT_SOURCE_DIR}/bin)
 target_link_libraries(${LIBNAME} lua)
 target_include_directories(${LIBNAME} PUBLIC src)

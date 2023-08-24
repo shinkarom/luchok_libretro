@@ -1,1 +1,3 @@
 build/
+bin/*.dll
+bin/*.so
