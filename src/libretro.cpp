@@ -90,7 +90,7 @@ void retro_get_system_info(struct retro_system_info *info)
    info->library_name     = "Luchok fantasy console";
    info->library_version  = "0.1";
    info->need_fullpath    = false;
-   info->valid_extensions = "";
+   info->valid_extensions = "luchok";
 }
 
 static retro_video_refresh_t video_cb;
