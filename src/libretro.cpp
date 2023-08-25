@@ -328,17 +328,18 @@ void luaDelete() {
 void processDelayTimer() {
 	lua_getglobal(lua, DELAY_TIMER_VARIABLE);
     delay_timer = lua_tointeger(lua, -1);
-    if(delay_timer < -255 || delay_timer > 255){
-        luaL_error(lua, "delay_timer must be from 0 to 255");
-    }
+    if(delay_timer < 0) {
+		delay_timer = 0;
+	} else if(delay_timer > 255) {
+		delay_timer = 255;
+	}
+	
     lua_pop(lua, 1);
 
     if(delay_timer > 0){
         delay_timer--;
     }
-    else if (delay_timer < 0){
-        delay_timer++;
-    }
+
    // std::cout<<"delay_timer "<<delay_timer<<std::endl;
     lua_pushinteger(lua, delay_timer);
     lua_setglobal(lua, DELAY_TIMER_VARIABLE);
@@ -347,19 +348,20 @@ void processDelayTimer() {
 void processSoundTimer() {
 	 lua_getglobal(lua, SOUND_TIMER_VARIABLE);
     sound_timer = lua_tointeger(lua, -1);
-    if(sound_timer < -255 || sound_timer > 255){
-        luaL_error(lua, "sound_timer must be from 0 to 255");
-    }
+	
+    if(sound_timer < 0) {
+		sound_timer = 0;
+	} else if(sound_timer > 255) {
+		sound_timer = 255;
+	}
+	
     lua_pop(lua, 1);
 
     if(sound_timer > 0){
         sound_timer--;
     }
-    else if (sound_timer < 0){
-        sound_timer++;
-    }
-
-    playing = sound_timer != 0;
+	
+    playing = sound_timer > 0;
   // std::cout<<"sound_timer "<<sound_timer<<" paused "<<paused<<std::endl;
     lua_pushinteger(lua, sound_timer);
     lua_setglobal(lua, SOUND_TIMER_VARIABLE);
