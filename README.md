@@ -2,6 +2,9 @@
 
 > 64x32 is enough for everybody.
 
+![Playing invaders.luchok](invaders.png)
+![Playing snake.luchok](snake.png)
+
 Luchok is Fantasy Console inspired by Chip-8 (https://en.wikipedia.org/wiki/CHIP-8).  It is a libretro core.
 
 # Features
@@ -27,7 +30,9 @@ To build Luchok, you must have cmake and a build system of your choice.
 
 # Running
 *retroarch executable* -L *luchok library afer building* *game file*
+
 For example, if on a GNU/Linux system, and you are locared in the repository root, you can run `retroarch -L bin/luchok_libretro.so bin/invaders.luchok`.
+
 In Retroarch, press ScrollLock to switch between retroarch key bindings and Luchok keypad.
 
 # Usage
