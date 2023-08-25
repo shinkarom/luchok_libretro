@@ -1,4 +1,4 @@
-# luchok
+# luchok-libretro
 
 > 64x32 is enough for everybody.
 
@@ -29,7 +29,7 @@ To build Luchok, you must have cmake and a build system of your choice.
 * When finished, there will be `luchok_libretro.dll` or `luchok_libretro.so` in the `bin` folder.
 
 # Running
-*retroarch executable* -L *luchok library afer building* *game file*
+*retroarch executable* -L *luchok library afer building* **game file**
 
 For example, if on a GNU/Linux system, and you are locared in the repository root, you can run `retroarch -L bin/luchok_libretro.so bin/invaders.luchok`.
 
@@ -76,7 +76,7 @@ and mapped to:
 > Z X C V
 
 # License
-GPL 3.
+Licensed under [GNU General Public License 3](https://www.gnu.org/licenses/gpl-3.0.html).
 
 
 # Author
