@@ -1,5 +1,5 @@
 Luchok is a Fantasy Console inspired by Chip-8 (https://en.wikipedia.org/wiki/CHIP-8).
-The games for Luchok are written in Lua. (I prefer the .luchok extension, but the engine does not care).
+The games for Luchok are written in Lua, with file extension .luchok .
 
 Every frame (60 per second) the function vblank() is called.
 
@@ -12,7 +12,7 @@ The API for the fantasy console is:
     key_pressed(num) - check if the specified key (0-15) is pressed at this frame.
     key_released(num) - check if the specified key (0-15) has been released.
     bcd(num) - splits the specified number (0-255), into array of its digits
-    get_sprite(num) - gets the built-in sprite for the specified number (0-255)
+    get_sprite(num) - gets the built-in sprite for the specified number (0-15)
     delay_timer (0-255) - decrements every frame until it hits 0
     sound_timer (0-255) - decrements every frame until it hits 0, each frame it's not 0 a buzzer sounds
 
