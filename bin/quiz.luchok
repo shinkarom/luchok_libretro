@@ -1,0 +1,81 @@
+showingresult = false
+a = 0
+b = 0
+isplus = true
+res = 0
+drawquestion = true
+answer = -1
+
+function generatequiz()
+	a = rnd(10)
+	b = rnd(10)
+	if a + b > 9 then
+		isplus = false
+		if a - b < 0 then
+			local c = a
+			a = b
+			b = c
+		end
+		res = a - b
+	else
+		isplus = true
+		res = a + b
+	end
+end
+
+generatequiz()
+
+function vblank()
+	cls()
+	if showingresult then
+		draw(get_sprite(answer), 10, 10)
+		if answer == res then
+			draw(equalssign, 15, 10)
+		else
+			draw(notequalssign, 15, 10)
+		end
+		draw(get_sprite(res), 21, 10)
+		if delay_timer == 0 then
+			showingresult = false
+			answer = -1
+			generatequiz()
+		end
+	else
+		draw(get_sprite(a), 10, 10)
+		if isplus then
+			draw(plussign, 15, 10)
+		else
+			draw(minussign, 15, 10)
+		end
+		draw(get_sprite(b), 21, 10)
+		draw(equalssign, 26, 10)
+		if drawquestion then
+			draw(questionsign, 32, 10)	
+		end
+		if delay_timer == 0 then
+			drawquestion = not drawquestion
+			delay_timer = 60
+		end
+		
+		for i = 0,9 do
+			if key_released(i) then 
+				answer = i
+			end
+		end
+		if answer ~= -1 then
+			if answer == res then
+				sound_timer = 80
+			else
+				sound_timer = 40
+			end
+			showingresult = true
+			delay_timer = 120
+		end
+	end
+end
+
+plussign = {0x20, 0x20, 0xF8, 0x20, 0x20}
+minussign = {0x00, 0x00, 0xF8, 0x00, 0x00}
+equalssign = {0x00, 0xF8, 0x00, 0xF8, 0x00}
+notequalssign = {0x50, 0x88, 0xD8, 0x88, 0x50}
+questionsign = {0x70, 0x88, 0x10, 0x00, 0x20}

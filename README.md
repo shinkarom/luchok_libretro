@@ -29,7 +29,7 @@ To build Luchok, you must have [cmake](https://cmake.org) and a build system of 
 * When finished, there will be `luchok_libretro.dll` or `luchok_libretro.so` in the `bin` folder.
 
 # Running
-*retroarch executable* -L *luchok library afer building* **game file**
+*retroarch executable*  -L  *luchok library afer building*  **game file**
 
 For example, if on a GNU/Linux system, and you are locared in the repository root, you can run `retroarch -L bin/luchok_libretro.so bin/invaders.luchok`.
 
