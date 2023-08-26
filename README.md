@@ -1,11 +1,11 @@
-# luchok-libretro
+# luchok_libretro
 
 > 64x32 is enough for everybody.
 
 ![Playing invaders.luchok](invaders.png)
 ![Playing snake.luchok](snake.png)
 
-Luchok is Fantasy Console inspired by Chip-8 (https://en.wikipedia.org/wiki/CHIP-8).  It is a libretro core.
+Luchok is Fantasy Console inspired by [Chip-8](https://en.wikipedia.org/wiki/CHIP-8).  It is a [libretro](https://libretro.com) core.
 
 # Features
 
@@ -19,11 +19,11 @@ Luchok is Fantasy Console inspired by Chip-8 (https://en.wikipedia.org/wiki/CHIP
 
 
 # Building
-To build Luchok, you must have cmake and a build system of your choice.
+To build Luchok, you must have [cmake](https://cmake.org) and a build system of your choice.
 * Download the repository
 * Create `build` folder there.
 * Move into `build` folder
-* `cmake .. -G "Ninja"`. Cmake supports many different build systems, Ninja is only one of them.
+* `cmake .. -G "Ninja"`. Cmake supports many different build systems, [Ninja](https://ninja-build.org) is only one of them.
 * When finished, move back to the repository root.
 * `cmake --build build`
 * When finished, there will be `luchok_libretro.dll` or `luchok_libretro.so` in the `bin` folder.
