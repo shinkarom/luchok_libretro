@@ -3,6 +3,8 @@ The games for Luchok are written in Lua, with file extension .luchok .
 
 Every frame (60 per second) the function vblank() is called.
 
+Each sprite is an array. Consecutive bytes are drawn in verical order. Each bit in a byte represents one picel, MSB to LSB is drawn left to right.
+
 The API for the fantasy console is:
 
     cls() - clears the screen.

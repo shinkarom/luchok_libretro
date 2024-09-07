@@ -1,0 +1,33 @@
+# Software Information
+display_name = "Luchok"
+categories = "Emulator"
+authors = "Shinkarom"
+corename = "luchok"
+supported_extensions = "luchok"
+license = "GPLv3"
+permissions = ""
+display_version = "v1.0"
+
+# Hardware Information
+manufacturer = "Shinkarom"
+systemname = "Luchok"
+systemid = "luchok"
+
+# Libretro Features
+savestate = "true"
+savestate_features = "serialized"
+cheats = "false"
+input_descriptors = "true"
+memory_descriptors = "false"
+libretro_saves = "true"
+core_options = "true"
+core_options_version = "1.0"
+load_subsystem = "false"
+supports_no_game = "false"
+database = "Luchok"
+hw_render = "true"
+needs_fullpath = "false"
+disk_control = "false"
+is_experimental = "false"
+
+description = "Luchok fantasy console."

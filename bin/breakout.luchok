@@ -1,0 +1,176 @@
+-- Breakout-style game for Luchok
+-- Controls: Move paddle with 4 (left) and 6 (right)
+
+-- Game variables
+paddle = {x = 28, y = 30, width = 8}  -- Paddle position and size
+ball = {x = 30, y = 20, dx = 1, dy = -1}  -- Ball position and direction
+bricks = {}  -- Table to hold the bricks
+rows = 4
+cols = 8
+brick_width = 8
+brick_height = 1
+scene = 0  -- 0 = playing, 1 = game over
+framenum = 0
+
+-- Sprites for paddle, ball, brick, and "GAME OVER"
+paddle_sprite = {0xFF}  -- 8 pixels wide paddle
+ball_sprite = {0x80}  -- 1 pixel ball (single pixel at the left-most side)
+brick_sprite = {0xFF}  -- 8 pixels wide brick
+game_over_sprites = {
+    {0xF8, 0x80, 0xB8, 0x88, 0xF8},  -- G
+    get_sprite(0xA),  -- A
+    {0x88, 0xD8, 0xA8, 0x88, 0x88},  -- M
+    get_sprite(0xE),  -- E
+    {0x00},                         -- space
+    {0x70, 0x88, 0x88, 0x88, 0x70},  -- O
+    {0x88, 0x88, 0x88, 0x70, 0x20},  -- V
+    get_sprite(0xE),  -- E
+    {0xF8, 0x88, 0xF8, 0xA0, 0x90}   -- R
+}
+
+-- Function to initialize bricks
+function init_bricks()
+    bricks = {}
+    for i = 1, rows do
+        for j = 1, cols do
+            local brick = {x = (j - 1) * brick_width, y = (i - 1) * brick_height, active = true}
+            table.insert(bricks, brick)
+        end
+    end
+end
+
+-- Function to reset the game
+function init_game()
+    paddle.x = 28
+    ball.x, ball.y = 30, 20
+    ball.dx, ball.dy = math.random() > 0.5 and 1 or -1, math.random() > 0.5 and 1 or -1
+    scene = 0
+	framenum = 0
+    init_bricks()
+end
+
+init_game()
+
+-- Function to draw the paddle
+function draw_paddle()
+    draw(paddle_sprite, paddle.x, paddle.y)
+end
+
+-- Function to draw the ball
+function draw_ball()
+    draw(ball_sprite, ball.x, ball.y)
+end
+
+-- Function to draw the bricks
+function draw_bricks()
+    for i = 1, #bricks do
+        if bricks[i].active then
+            draw(brick_sprite, bricks[i].x, bricks[i].y)
+        end
+    end
+end
+
+-- Function to process input for paddle movement
+function process_input()
+    if key_pressed(4) and paddle.x > 0 then  -- Move left
+        paddle.x = paddle.x - 2
+    elseif key_pressed(6) and paddle.x + paddle.width < 64 then  -- Move right
+        paddle.x = paddle.x + 2
+    end
+end
+
+-- Function to handle ball-paddle collision
+function paddle_collision()
+    if ball.y == paddle.y - 1 and ball.x >= paddle.x and ball.x < paddle.x + paddle.width then
+        ball.dy = -ball.dy  -- Bounce the ball upwards
+        sound_timer = 10  -- Play a sound on collision
+    end
+end
+
+-- Function to handle ball-brick collision
+function brick_collision()
+    for i = 1, #bricks do
+        if bricks[i].active and ball.x >= bricks[i].x and ball.x < bricks[i].x + brick_width and
+            ball.y == bricks[i].y then
+            bricks[i].active = false  -- Deactivate the brick
+            ball.dy = -ball.dy  -- Bounce the ball
+            sound_timer = 15  -- Play sound when brick is hit
+            break
+        end
+    end
+end
+
+-- Function to move the ball
+function move_ball()
+    ball.x = ball.x + ball.dx
+    ball.y = ball.y + ball.dy
+
+    -- Bounce the ball off the walls
+    if ball.x <= 0 or ball.x >= 63 then
+        ball.dx = -ball.dx
+    end
+    if ball.y <= 0 then
+        ball.dy = -ball.dy
+    end
+
+    -- Check if ball goes off the bottom of the screen (game over)
+    if ball.y >= 31 then
+        scene = 1  -- Game over
+    end
+end
+
+-- Function to handle game logic
+function update_game()
+    process_input()
+	if framenum % 6 == 0 then
+     move_ball()
+	end
+    paddle_collision()
+    brick_collision()
+
+    -- Check if all bricks are destroyed (win condition)
+    local all_bricks_destroyed = true
+    for i = 1, #bricks do
+        if bricks[i].active then
+            all_bricks_destroyed = false
+            break
+        end
+    end
+    if all_bricks_destroyed then
+        scene = 1  -- You win (game over)
+    end
+	framenum = framenum + 1
+end
+
+-- Function to draw the "GAME OVER" screen
+function draw_game_over()
+    local x_offset = 5
+	local y_offset = 10
+    for i = 1, #game_over_sprites do
+        draw(game_over_sprites[i], x_offset, y_offset)  -- Each sprite is 5 bytes high
+        x_offset = x_offset + 6 -- Space between letters
+		if x_offset >= 63-8 then
+		 x_offset  = 10
+		 y_offset = y_offset + 6
+		end
+    end
+end
+
+-- Function called every frame
+function vblank()
+    cls()
+
+    if scene == 0 then
+        -- Game is running
+        update_game()
+        draw_paddle()
+        draw_ball()
+        draw_bricks()
+    elseif scene == 1 then
+        -- Game over
+        draw_game_over()
+        if key_released(5) then  -- Press 5 to restart
+            init_game()
+        end
+    end
+end
