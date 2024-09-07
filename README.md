@@ -35,10 +35,16 @@ For example, if on a GNU/Linux system, and you are locared in the repository roo
 
 In Retroarch, press ScrollLock to switch between retroarch key bindings and Luchok keypad.
 
+# Installing
+
+On Windows, you copy the `.dll` file into the `cores` folder of Retroarch, and copy the `.info` file into the `info` folder.
+
 # Usage
 The games for Luchok are written in Lua, with file extension .luchok .
 
 Every frame (60 per second) the function `vblank()` is called.
+
+Each sprite is an array. Consecutive bytes are drawn in verical order. Each bit in a byte represents one picel, MSB to LSB is drawn left to right.
 
 The API for the fantasy console is:
 
