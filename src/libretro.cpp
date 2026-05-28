@@ -18,7 +18,7 @@ extern "C" {
 	#include "lua.h"
 	#include "lauxlib.h"
 	#include "lualib.h"
-}
+	
 
 constexpr uint32_t ON_COLOR = 0xFFFFFFFF;
 constexpr uint32_t OFF_COLOR = 0x00000000;
@@ -205,8 +205,8 @@ int luaDraw(lua_State* L) {
    // std::cout<<"drawing at "<<x<<" "<<y<<std::endl;
 
     luaL_argcheck(lua, lua_istable(lua, 1), 1, "cls() argument must be a table");
-    luaL_argcheck(lua, (x >= 0 && x < screenWidth), 2, "cls() x must be between 0 and 63");
-    luaL_argcheck(lua, (y >= 0 && y < screenHeight), 3, "cls() y must be between 0 and 31");
+    luaL_argcheck(lua, (x >= 0 && x < screenWidth), 2, "draw() x must be between 0 and 63");
+    luaL_argcheck(lua, (y >= 0 && y < screenHeight), 3, "draw() y must be between 0 and 31");
 
     for(int i = start; i < start + len; i++){
         lua_geti(lua, 1, i);
@@ -367,7 +367,7 @@ void processSoundTimer() {
     lua_setglobal(lua, SOUND_TIMER_VARIABLE);
 }
 
-void retro_init(void)
+RETRO_API void retro_init(void)
 {
    frame_buf = new uint32_t[screenTotalPixels];
    memset(frame_buf,0,screenTotalPixels*sizeof(uint32_t));
@@ -381,23 +381,23 @@ void retro_init(void)
    
 }
 
-void retro_deinit(void)
+RETRO_API void retro_deinit(void)
 {
    delete[] frame_buf;
    luaDelete();
 }
 
-unsigned retro_api_version(void)
+RETRO_API unsigned retro_api_version(void)
 {
    return RETRO_API_VERSION;
 }
 
-void retro_set_controller_port_device(unsigned port, unsigned device)
+RETRO_API void retro_set_controller_port_device(unsigned port, unsigned device)
 {
   // log_cb(RETRO_LOG_INFO, "Plugging device %u into port %u.\n", device, port);
 }
 
-void retro_get_system_info(struct retro_system_info *info)
+RETRO_API void retro_get_system_info(struct retro_system_info *info)
 {
    memset(info, 0, sizeof(*info));
    info->library_name     = "Luchok fantasy console";
@@ -412,7 +412,7 @@ static retro_audio_sample_batch_t audio_batch_cb;
 static retro_input_poll_t input_poll_cb;
 static retro_input_state_t input_state_cb;
 
-void retro_get_system_av_info(struct retro_system_av_info *info)
+RETRO_API void retro_get_system_av_info(struct retro_system_av_info *info)
 {
    float aspect                = 0.0f;
    float sampling_rate         = audioSampleRate*1.0f;
@@ -428,7 +428,7 @@ void retro_get_system_av_info(struct retro_system_av_info *info)
    last_sample_rate            = sampling_rate;
 }
 
-void retro_set_environment(retro_environment_t cb)
+RETRO_API void retro_set_environment(retro_environment_t cb)
 {
    environ_cb = cb;
 
@@ -449,32 +449,32 @@ void retro_set_environment(retro_environment_t cb)
    cb(RETRO_ENVIRONMENT_SET_CONTROLLER_INFO, (void*)ports);
 }
 
-void retro_set_audio_sample(retro_audio_sample_t cb)
+RETRO_API void retro_set_audio_sample(retro_audio_sample_t cb)
 {
    audio_cb = cb;
 }
 
-void retro_set_audio_sample_batch(retro_audio_sample_batch_t cb)
+RETRO_API void retro_set_audio_sample_batch(retro_audio_sample_batch_t cb)
 {
    audio_batch_cb = cb;
 }
 
-void retro_set_input_poll(retro_input_poll_t cb)
+RETRO_API void retro_set_input_poll(retro_input_poll_t cb)
 {
    input_poll_cb = cb;
 }
 
-void retro_set_input_state(retro_input_state_t cb)
+RETRO_API void retro_set_input_state(retro_input_state_t cb)
 {
    input_state_cb = cb;
 }
 
-void retro_set_video_refresh(retro_video_refresh_t cb)
+RETRO_API void retro_set_video_refresh(retro_video_refresh_t cb)
 {
    video_cb = cb;
 }
 
-void retro_reset(void)
+RETRO_API void retro_reset(void)
 {
 
 }
@@ -525,7 +525,7 @@ static void audio_set_state(bool enable)
    (void)enable;
 }
 
-void retro_run(void)
+RETRO_API void retro_run(void)
 {
 	processDelayTimer();
 	processSoundTimer();
@@ -544,7 +544,7 @@ void retro_run(void)
       check_variables();
 }
 
-bool retro_load_game(const struct retro_game_info *info)
+RETRO_API bool retro_load_game(const struct retro_game_info *info)
 {
    struct retro_input_descriptor desc[] = {
       { 0, RETRO_DEVICE_JOYPAD, 0, RETRO_DEVICE_ID_JOYPAD_LEFT,  "Left" },
@@ -580,55 +580,56 @@ bool retro_load_game(const struct retro_game_info *info)
    return true;
 }
 
-void retro_unload_game(void)
+RETRO_API void retro_unload_game(void)
 {
 
 }
 
-unsigned retro_get_region(void)
+RETRO_API unsigned retro_get_region(void)
 {
    return RETRO_REGION_NTSC;
 }
 
-bool retro_load_game_special(unsigned type, const struct retro_game_info *info, size_t num)
+RETRO_API bool retro_load_game_special(unsigned type, const struct retro_game_info *info, size_t num)
 {
    return false;
 }
 
-size_t retro_serialize_size(void)
+RETRO_API size_t retro_serialize_size(void)
 {
    return 0;
 }
 
-bool retro_serialize(void *data_, size_t size)
+RETRO_API bool retro_serialize(void *data_, size_t size)
 {
    return false;
 }
 
-bool retro_unserialize(const void *data_, size_t size)
+RETRO_API bool retro_unserialize(const void *data_, size_t size)
 {
    return false;
 }
 
-void *retro_get_memory_data(unsigned id)
+RETRO_API void *retro_get_memory_data(unsigned id)
 {
    (void)id;
    return NULL;
 }
 
-size_t retro_get_memory_size(unsigned id)
+RETRO_API size_t retro_get_memory_size(unsigned id)
 {
    (void)id;
    return 0;
 }
 
-void retro_cheat_reset(void)
+RETRO_API void retro_cheat_reset(void)
 {}
 
-void retro_cheat_set(unsigned index, bool enabled, const char *code)
+RETRO_API void retro_cheat_set(unsigned index, bool enabled, const char *code)
 {
    (void)index;
    (void)enabled;
    (void)code;
 }
 
+}
