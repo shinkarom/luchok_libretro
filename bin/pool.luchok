@@ -1,0 +1,251 @@
+-- =====================================
+-- GAME: Luchok Pool (Billiards)
+-- Controls: 4/6 (Aim), 5 (Hold for Power)
+-- =====================================
+
+spr_px = {0x80}
+spr_cueball = {0x40, 0xE0, 0x40}   -- Solid cross
+spr_target  = {0xE0, 0xA0, 0xE0}   -- Hollow square
+
+function init()
+    state = 0 -- 0: Aiming, 1: Rolling
+    aim_angle = 0
+    power = 0
+    score = 0
+    
+    k4 = false
+    k6 = false
+    k5 = false
+    
+    pockets = {
+        {x = 3, y = 3}, {x = 32, y = 2}, {x = 61, y = 3},
+        {x = 3, y = 29},{x = 32, y = 30},{x = 61, y = 29}
+    }
+    
+    -- Spawn balls (x,y represent the CENTER of the ball)
+    balls = {}
+    -- Cue Ball (Index 1)
+    table.insert(balls, {x = 16, y = 16, vx = 0, vy = 0, is_cue = true})
+    
+    -- Rack 6 target balls in a triangle
+    table.insert(balls, {x = 44, y = 16, vx = 0, vy = 0, is_cue = false})
+    table.insert(balls, {x = 47, y = 14.5, vx = 0, vy = 0, is_cue = false})
+    table.insert(balls, {x = 47, y = 17.5, vx = 0, vy = 0, is_cue = false})
+    table.insert(balls, {x = 50, y = 13, vx = 0, vy = 0, is_cue = false})
+    table.insert(balls, {x = 50, y = 16, vx = 0, vy = 0, is_cue = false})
+    table.insert(balls, {x = 50, y = 19, vx = 0, vy = 0, is_cue = false})
+end
+
+init()
+
+function safe_px(x, y)
+    if x >= 0 and x <= 63 and y >= 0 and y <= 31 then
+        draw(spr_px, math.floor(x), math.floor(y))
+    end
+end
+
+function draw_line(x0, y0, x1, y1)
+    x0, y0 = math.floor(x0), math.floor(y0)
+    x1, y1 = math.floor(x1), math.floor(y1)
+    local dx = math.abs(x1 - x0)
+    local dy = math.abs(y1 - y0)
+    local sx = (x0 < x1) and 1 or -1
+    local sy = (y0 < y1) and 1 or -1
+    local err = dx - dy
+    while true do
+        safe_px(x0, y0)
+        if x0 == x1 and y0 == y1 then break end
+        local e2 = 2 * err
+        if e2 > -dy then err = err - dy; x0 = x0 + sx end
+        if e2 < dx then err = err + dx; y0 = y0 + sy end
+    end
+end
+
+function vblank()
+    cls()
+    
+    -- =====================================
+    -- 1. INPUT TRACKING
+    -- =====================================
+    if key_pressed(4) then k4 = true end
+    if key_released(4) then k4 = false end
+    if key_pressed(6) then k6 = true end
+    if key_released(6) then k6 = false end
+    if key_pressed(5) then k5 = true end
+    if key_released(5) then k5 = false end
+
+    -- =====================================
+    -- 2. GAME STATE: AIMING & SHOOTING
+    -- =====================================
+    if state == 0 then
+        -- Aim
+        if k4 then aim_angle = aim_angle - 0.06 end
+        if k6 then aim_angle = aim_angle + 0.06 end
+        
+        -- Power Meter
+        if k5 then
+            power = power + 0.1
+            if power > 4.5 then power = 4.5 end
+        end
+        
+        -- Shoot!
+        if key_released(5) and power > 0.5 then
+            balls[1].vx = math.cos(aim_angle) * power
+            balls[1].vy = math.sin(aim_angle) * power
+            power = 0
+            state = 1
+            sound_timer = 5
+        end
+    end
+
+    -- =====================================
+    -- 3. PHYSICS ENGINE
+    -- =====================================
+    local moving = false
+    
+    -- Run physics twice per frame for collision stability (Sub-stepping)
+    for step = 1, 2 do
+        for i = #balls, 1, -1 do
+            local b = balls[i]
+            
+            -- Apply Velocity & Friction
+            b.x = b.x + (b.vx / 2)
+            b.y = b.y + (b.vy / 2)
+            b.vx = b.vx * 0.985
+            b.vy = b.vy * 0.985
+            
+            if math.abs(b.vx) < 0.03 then b.vx = 0 end
+            if math.abs(b.vy) < 0.03 then b.vy = 0 end
+            if b.vx ~= 0 or b.vy ~= 0 then moving = true end
+
+            -- Table Boundaries (Bounciness = 0.8)
+            local r = 1.5 -- Ball Radius
+            if b.x < 4 + r then b.x = 4 + r; b.vx = -b.vx * 0.8; sound_timer = 1 end
+            if b.x > 60 - r then b.x = 60 - r; b.vx = -b.vx * 0.8; sound_timer = 1 end
+            if b.y < 4 + r then b.y = 4 + r; b.vy = -b.vy * 0.8; sound_timer = 1 end
+            if b.y > 28 - r then b.y = 28 - r; b.vy = -b.vy * 0.8; sound_timer = 1 end
+
+            -- Pockets (Check distance to pocket center)
+            local pocketed = false
+            for p = 1, 6 do
+                local pdx = pockets[p].x - b.x
+                local pdy = pockets[p].y - b.y
+                if (pdx*pdx + pdy*pdy) < 12 then
+                    pocketed = true
+                    sound_timer = 15
+                    break
+                end
+            end
+            
+            if pocketed then
+                if b.is_cue then
+                    -- Scratch! Respawn cue ball and stop its momentum
+                    b.x = 16
+                    b.y = 16
+                    b.vx = 0
+                    b.vy = 0
+                else
+                    table.remove(balls, i)
+                    score = score + 1
+                end
+            end
+        end
+        
+        -- 2D Elastic Ball-to-Ball Collisions
+        for i = 1, #balls do
+            for j = i + 1, #balls do
+                local b1 = balls[i]
+                local b2 = balls[j]
+                
+                local dx = b2.x - b1.x
+                local dy = b2.y - b1.y
+                local dist = math.sqrt(dx*dx + dy*dy)
+                
+                if dist > 0 and dist < 3.0 then -- 3.0 is the diameter
+                    -- Separate the balls so they don't stick together
+                    local overlap = (3.0 - dist) / 2
+                    local nx = dx / dist
+                    local ny = dy / dist
+                    
+                    b1.x = b1.x - nx * overlap
+                    b1.y = b1.y - ny * overlap
+                    b2.x = b2.x + nx * overlap
+                    b2.y = b2.y + ny * overlap
+                    
+                    -- Calculate momentum transfer
+                    local dvx = b1.vx - b2.vx
+                    local dvy = b1.vy - b2.vy
+                    local p = dvx * nx + dvy * ny
+                    
+                    if p > 0 then
+                        b1.vx = b1.vx - p * nx
+                        b1.vy = b1.vy - p * ny
+                        b2.vx = b2.vx + p * nx
+                        b2.vy = b2.vy + p * ny
+                        sound_timer = 2 -- Quiet click!
+                    end
+                end
+            end
+        end
+    end
+    
+    -- If nothing is moving, go back to Aim mode!
+    if not moving and state == 1 then
+        state = 0
+    end
+    
+    -- Reset rack if all targets are sunk
+    if #balls == 1 then init() end
+
+    -- =====================================
+    -- 4. RENDERING
+    -- =====================================
+    -- Draw Table Edges
+    draw_line(4, 4, 60, 4)
+    draw_line(4, 28, 60, 28)
+    draw_line(4, 4, 4, 28)
+    draw_line(60, 4, 60, 28)
+    
+    -- Draw Pockets (Gaps in the border)
+    for p = 1, 6 do
+        local px = pockets[p].x
+        local py = pockets[p].y
+        safe_px(px, py)
+        safe_px(px+1, py)
+        safe_px(px-1, py)
+        safe_px(px, py+1)
+        safe_px(px, py-1)
+    end
+    
+    -- Draw Balls
+    for i = 1, #balls do
+        local b = balls[i]
+        if b.is_cue then
+            draw(spr_cueball, math.floor(b.x - 1), math.floor(b.y - 1))
+        else
+            draw(spr_target, math.floor(b.x - 1), math.floor(b.y - 1))
+        end
+    end
+    
+    -- Draw Aiming Line & Power Meter
+    if state == 0 then
+        local cb = balls[1]
+        local c_cos = math.cos(aim_angle)
+        local c_sin = math.sin(aim_angle)
+        
+        -- Dotted aiming line
+        for l = 5, 20, 3 do
+            safe_px(cb.x + c_cos * l, cb.y + c_sin * l)
+        end
+        
+        -- Power Meter visual (Draws backwards from the cueball)
+        if power > 0 then
+            local pm = math.floor(power * 3)
+            draw_line(cb.x - c_cos * 4, cb.y - c_sin * 4, cb.x - c_cos * (4 + pm), cb.y - c_sin * (4 + pm))
+        end
+    end
+    
+    -- Draw Score
+    local d_sco = bcd(score)
+    draw(get_sprite(d_sco[3]), 30, 0)
+end

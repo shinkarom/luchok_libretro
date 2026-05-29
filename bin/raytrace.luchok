@@ -1,0 +1,160 @@
+-- =====================================
+-- GAME: LUCHOK-RTX (True Raytracer)
+-- Features: Sphere Math, Hard Shadows, Bayer Dithering
+-- =====================================
+
+-- 1-pixel sprite for rendering (10000000 in binary)
+spr_pixel = {0x80} 
+
+-- 4x4 Bayer Dither Matrix (Converts smooth light into 1-bit shading)
+dither = {
+    0.0625, 0.5625, 0.1875, 0.6875,
+    0.8125, 0.3125, 0.9375, 0.4375,
+    0.2500, 0.7500, 0.1250, 0.6250,
+    1.0000, 0.5000, 0.8750, 0.3750
+}
+
+frames = 0
+
+function vblank()
+    cls()
+    frames = frames + 1
+    
+    -- =====================================
+    -- 1. SCENE SETUP (Animate the world)
+    -- =====================================
+    -- Bouncing Sphere (Center: x, y, z | Radius: r)
+    local sr = 0.8
+    local sx = 0
+    local sy = math.abs(math.sin(frames * 0.05)) * 1.5 - 0.2 -- Bounces on floor
+    local sz = 2.5
+    
+    -- Orbiting Point Light Source
+    local lx = math.sin(frames * 0.03) * 5
+    local ly = 4
+    local lz = math.cos(frames * 0.03) * 5 + 1
+    
+    -- =====================================
+    -- 2. RAYTRACING ENGINE (Pixel by Pixel)
+    -- =====================================
+    for y = 0, 31 do
+        -- Screen Y to World Y (-0.5 to 0.5)
+        local vy = 0.5 - (y / 31) 
+        
+        for x = 0, 63 do
+            -- Screen X to World X (-1.0 to 1.0)
+            local vx = (x / 63) * 2 - 1 
+            
+            -- Ray Direction (Camera is at origin 0,0,0 facing Z=1)
+            local dx = vx
+            local dy = vy
+            local dz = 1
+            
+            -- Normalize Ray Direction
+            local mag = math.sqrt(dx*dx + dy*dy + dz*dz)
+            dx, dy, dz = dx/mag, dy/mag, dz/mag
+            
+            local t_min = 9999
+            local nx, ny, nz = 0, 0, 0
+            local hit_type = 0 -- 0=Sky, 1=Sphere, 2=Floor
+            
+            -- ---------------------------------
+            -- A. SPHERE INTERSECTION
+            -- ---------------------------------
+            local ocx, ocy, ocz = -sx, -sy, -sz
+            local b = 2 * (dx*ocx + dy*ocy + dz*ocz)
+            local c = ocx*ocx + ocy*ocy + ocz*ocz - sr*sr
+            local disc = b*b - 4*c
+            
+            if disc > 0 then
+                local t = (-b - math.sqrt(disc)) / 2
+                if t > 0 then
+                    t_min = t
+                    hit_type = 1
+                    -- Calculate Surface Normal
+                    nx = (t*dx) - sx
+                    ny = (t*dy) - sy
+                    nz = (t*dz) - sz
+                    local nmag = math.sqrt(nx*nx + ny*ny + nz*nz)
+                    nx, ny, nz = nx/nmag, ny/nmag, nz/nmag
+                end
+            end
+            
+            -- ---------------------------------
+            -- B. FLOOR INTERSECTION (Plane Y = -1)
+            -- ---------------------------------
+            if dy < 0 then
+                local t = (-1) / dy 
+                if t > 0 and t < t_min then
+                    t_min = t
+                    hit_type = 2
+                    nx, ny, nz = 0, 1, 0 -- Floor points straight up
+                end
+            end
+            
+            -- =====================================
+            -- 3. SHADING & SHADOWS
+            -- =====================================
+            if hit_type > 0 then
+                -- Hit Point
+                local px = t_min * dx
+                local py = t_min * dy
+                local pz = t_min * dz
+                
+                -- Light Vector
+                local vlx = lx - px
+                local vly = ly - py
+                local vlz = lz - pz
+                local vmag = math.sqrt(vlx*vlx + vly*vly + vlz*vlz)
+                vlx, vly, vlz = vlx/vmag, vly/vmag, vlz/vmag
+                
+                -- Shadow Ray (Does the sphere block the floor's light?)
+                local in_shadow = false
+                if hit_type == 2 then 
+                    local sox, soy, soz = px - sx, py - sy, pz - sz
+                    local sb = 2 * (vlx*sox + vly*soy + vlz*soz)
+                    local sc = sox*sox + soy*soy + soz*soz - sr*sr
+                    local sdisc = sb*sb - 4*sc
+                    if sdisc > 0 then
+                        local st = (-sb - math.sqrt(sdisc)) / 2
+                        -- If hit is between floor and light, shadow!
+                        if st > 0.01 and st < vmag then
+                            in_shadow = true
+                        end
+                    end
+                end
+                
+                -- Calculate Diffuse Lighting
+                local diffuse = 0
+                if not in_shadow then
+                    diffuse = nx*vlx + ny*vly + nz*vlz
+                    if diffuse < 0 then diffuse = 0 end
+                end
+                
+                -- Base ambient light
+                local final_brightness = diffuse * 0.8 + 0.1
+                
+                -- Floor Checkerboard Pattern Texture
+                if hit_type == 2 then
+                    local cx = math.floor(px * 2)
+                    local cz = math.floor(pz * 2)
+                    if (cx + cz) % 2 == 0 then
+                        final_brightness = final_brightness * 0.3 -- Dark tile
+                    end
+                end
+                
+                -- =====================================
+                -- 4. RENDER TO SCREEN (Dithering)
+                -- =====================================
+                -- Find threshold in our 4x4 matrix
+                local dither_idx = (y % 4) * 4 + (x % 4) + 1
+                local threshold = dither[dither_idx]
+                
+                -- If pixel is brighter than the dither pattern, draw it!
+                if final_brightness >= threshold then
+                    draw(spr_pixel, x, y)
+                end
+            end
+        end
+    end
+end

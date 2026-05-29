@@ -1,0 +1,164 @@
+-- =====================================
+-- GAME: Luchok OutRun (Auto-Driving)
+-- Controls: 4 (Left), 6 (Right)
+-- =====================================
+
+spr_px = {0x80}
+spr_car = {0x18, 0x3C, 0x7E, 0xFF, 0xA5}
+spr_enemy = {0x7E, 0xFF, 0x99}
+spr_sun = {0x3C, 0x7E, 0xFF, 0xFF, 0xFF, 0xFF, 0x7E, 0x3C}
+
+function init()
+    speed = 0
+    dist = 0
+    px = 0          -- Player X offset from center of road
+    shake = 0
+    score = 0
+    
+    enemy_z = 0     -- Depth of rival car (1 = Horizon, 16 = Camera)
+    enemy_x = 0     -- Rival X offset
+    
+    road_cx = {}
+    for i = 1, 16 do road_cx[i] = 32 end
+end
+
+init()
+
+-- Strictly prevents drawing 1 pixel outside of memory bounds (prevents crashes!)
+function safe_px(x, y)
+    if x >= 0 and x <= 63 and y >= 0 and y <= 31 then
+        draw(spr_px, x, y)
+    end
+end
+
+function vblank()
+    cls()
+    
+    -- =====================================
+    -- 1. AUTO-DRIVING PHYSICS & STEERING
+    -- =====================================
+    local max_speed = 2
+    
+    -- Offroad Penalty!
+    if math.abs(px) > 26 then
+        max_speed = 10
+        shake = 2 -- Rumble strips!
+    end
+    
+    -- Auto-Accelerate / Decelerate
+    if speed < max_speed then speed = speed + 1 end
+    if speed > max_speed then speed = speed - 2 end
+    
+    -- Steering
+    if key_pressed(4) then px = px - 3 end
+    if key_pressed(6) then px = px + 3 end
+    
+    -- Clamp the player so they can't drive infinitely off-screen
+    if px < -35 then px = -35 end
+    if px > 35 then px = 35 end
+    
+    dist = dist + speed
+    
+    -- Track Curvature
+    local curve = math.sin(dist * 0.02) * 1.5
+    
+    -- Centrifugal Force (Pushes you outward on curves)
+    px = px + (curve * speed * 0.02)
+
+    -- =====================================
+    -- 2. SCREEN SHAKE & BACKGROUND
+    -- =====================================
+    local sdx, sdy = 0, 0
+    if shake > 0 then
+        sdx = (shake % 3) - 1
+        sdy = ((shake * 2) % 3) - 1
+        shake = shake - 1
+    end
+    
+    -- The Sun (Reacts to steering, but clamped so it never wraps around the edges!)
+    local sun_x = 28 - math.floor(px / 3)
+    draw(spr_sun, sun_x, 4 + sdy)
+
+    -- =====================================
+    -- 3. ROAD RENDERING 
+    -- =====================================
+    local cx = 32 - px
+    local dx = 0
+    
+    for z = 16, 1, -1 do
+        local width = z * 2.2
+        dx = dx + curve
+        cx = cx + (dx / 10)
+        
+        road_cx[z] = cx
+        
+        local y = z + 15 + sdy
+        local left = math.floor(cx - width)
+        local right = math.floor(cx + width)
+        
+        local tile = math.floor((dist * 0.15) + (20 / z)) % 2
+        
+        if tile == 0 then
+            safe_px(left, y)
+            safe_px(left + 1, y)
+            safe_px(right, y)
+            safe_px(right - 1, y)
+        else
+            safe_px(left - 1, y)
+            safe_px(left - 2, y)
+            safe_px(right + 1, y)
+            safe_px(right + 2, y)
+        end
+    end
+
+    -- =====================================
+    -- 4. CONSTANT RIVAL TRAFFIC
+    -- =====================================
+    if enemy_z <= 0 then
+        -- Spawn new enemy immediately!
+        enemy_z = 1
+        enemy_x = (rnd(30) - 15) -- Randomly on left or right side of road
+    else
+        enemy_z = enemy_z + (speed * 0.015)
+        
+        if enemy_z > 16 then
+            -- Passed the enemy!
+            enemy_z = 0
+            score = score + 1
+            sound_timer = 5
+        elseif enemy_z >= 1 then
+            local ez = math.floor(enemy_z)
+            -- Map enemy position exactly to the curving road!
+            local ex = road_cx[ez] + (enemy_x * (ez / 16))
+            local ey = ez + 15 - 2 + sdy
+            
+            -- Only draw enemy if entirely on screen to prevent wrapping/crashing
+            local final_ex = math.floor(ex) - 4
+            if final_ex >= 0 and final_ex <= 55 then
+                draw(spr_enemy, final_ex, math.floor(ey))
+            end
+            
+            -- Crash Collision!
+            if ez >= 14 and math.abs(enemy_x - px) < 12 then
+                speed = 0
+                shake = 20
+                sound_timer = 30
+                enemy_z = 0 -- Despawn crashed car
+                score = 0   -- Reset score on crash
+            end
+        end
+    end
+
+    -- =====================================
+    -- 5. DRAW PLAYER CAR & HUD
+    -- =====================================
+    draw(spr_car, 28 + sdx, 27 + sdy)
+    
+    local d_spd = bcd(math.floor(speed))
+    draw(get_sprite(d_spd[2]), 2, 1)
+    draw(get_sprite(d_spd[3]), 7, 1)
+    
+    local d_sco = bcd(score)
+    draw(get_sprite(d_sco[2]), 54, 1)
+    draw(get_sprite(d_sco[3]), 59, 1)
+end

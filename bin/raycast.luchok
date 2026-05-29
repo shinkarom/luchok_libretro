@@ -1,0 +1,161 @@
+-- =====================================
+-- GAME: LUCHOK-3D (Raycaster Engine)
+-- Controls: 2, 8 (Move) / 4, 6 (Turn)
+-- =====================================
+
+-- THE HACK: A solid 1-pixel wide line. 
+-- The 7 trailing zeroes prevent XOR artifacts!
+spr_col = {}
+spr_col_shade = {}
+for i = 1, 32 do
+    spr_col[i] = 0x80
+    -- Alternating pixels to create a dithering/shadow effect
+    if i % 2 == 0 then
+        spr_col_shade[i] = 0x80
+    else
+        spr_col_shade[i] = 0x00
+    end
+end
+
+-- 8x8 Map (1 = Wall, 0 = Empty)
+map = {
+    1,1,1,1,1,1,1,1,
+    1,0,0,0,0,0,0,1,
+    1,0,1,1,0,1,0,1,
+    1,0,0,0,0,1,0,1,
+    1,0,1,0,0,0,0,1,
+    1,0,1,0,1,1,0,1,
+    1,0,0,0,0,0,0,1,
+    1,1,1,1,1,1,1,1
+}
+
+-- Player variables
+px = 1.5
+py = 1.5
+pa = 0.5
+FOV = math.pi / 3
+
+function vblank()
+    cls()
+    
+    -- =====================================
+    -- 1. INPUT & MOVEMENT
+    -- =====================================
+    local turn_speed = 0.08
+    local move_speed = 0.1
+    
+    if key_pressed(4) then pa = pa - turn_speed end -- Turn Left (A)
+    if key_pressed(6) then pa = pa + turn_speed end -- Turn Right (D)
+    
+    if key_pressed(2) then -- Move Forward (W)
+        local nx = px + math.cos(pa) * move_speed
+        local ny = py + math.sin(pa) * move_speed
+        -- Map collision check
+        if map[math.floor(ny) * 8 + math.floor(nx) + 1] == 0 then
+            px = nx
+            py = ny
+        end
+    end
+    
+    if key_pressed(8) then -- Move Backward (S)
+        local nx = px - math.cos(pa) * move_speed
+        local ny = py - math.sin(pa) * move_speed
+        -- Map collision check
+        if map[math.floor(ny) * 8 + math.floor(nx) + 1] == 0 then
+            px = nx
+            py = ny
+        end
+    end
+    
+    -- =====================================
+    -- 2. RAYCASTING ENGINE (DDA Algorithm)
+    -- =====================================
+    for sx = 0, 63 do
+        -- Calculate ray angle for current screen column
+        local ra = pa - (FOV / 2) + (sx / 63) * FOV
+        local rdx = math.cos(ra)
+        local rdy = math.sin(ra)
+        
+        -- DDA setup variables
+        local dx = math.abs(1 / (rdx + 0.0001))
+        local dy = math.abs(1 / (rdy + 0.0001))
+        
+        local mx = math.floor(px)
+        local my = math.floor(py)
+        
+        local sx_dir, sy_dir
+        local side_dx, side_dy
+        
+        if rdx < 0 then
+            sx_dir = -1
+            side_dx = (px - mx) * dx
+        else
+            sx_dir = 1
+            side_dx = (mx + 1 - px) * dx
+        end
+        
+        if rdy < 0 then
+            sy_dir = -1
+            side_dy = (py - my) * dy
+        else
+            sy_dir = 1
+            side_dy = (my + 1 - py) * dy
+        end
+        
+        local hit = false
+        local side = 0
+        
+        -- Cast the ray until it hits a wall block!
+        while not hit do
+            if side_dx < side_dy then
+                side_dx = side_dx + dx
+                mx = mx + sx_dir
+                side = 0 -- Hit a North/South wall
+            else
+                side_dy = side_dy + dy
+                my = my + sy_dir
+                side = 1 -- Hit an East/West wall
+            end
+            
+            -- Bounds check and map hit
+            if mx >= 0 and mx < 8 and my >= 0 and my < 8 then
+                if map[my * 8 + mx + 1] == 1 then
+                    hit = true
+                end
+            else
+                hit = true -- Hit edge of world
+            end
+        end
+        
+        -- Calculate true distance
+        local dist
+        if side == 0 then
+            dist = (mx - px + (1 - sx_dir) / 2) / (rdx + 0.0001)
+        else
+            dist = (my - py + (1 - sy_dir) / 2) / (rdy + 0.0001)
+        end
+        
+        -- Fix "Fisheye" lens effect
+        dist = dist * math.cos(ra - pa)
+        
+        -- =====================================
+        -- 3. RENDERING
+        -- =====================================
+        -- Calculate Wall Height (Max 32 pixels)
+        local h = math.floor(32 / (dist + 0.0001))
+        if h > 32 then h = 32 end
+        
+        -- Center the wall vertically on the screen
+        local y = 16 - math.floor(h / 2)
+        if y < 0 then y = 0 end
+        
+        -- Draw the 1-pixel column using our dynamic start/len feature!
+        if h > 0 then
+            if side == 1 then
+                draw(spr_col_shade, sx, y, 1, h) -- Shaded face
+            else
+                draw(spr_col, sx, y, 1, h)       -- Bright face
+            end
+        end
+    end
+end

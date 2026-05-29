@@ -1,0 +1,121 @@
+-- =====================================
+-- GAME: Luchok Golf
+-- Controls: 4/6 (Aim), 5 (Hold Power)
+-- =====================================
+
+spr_px = {0x80}
+spr_flag = {0xC0, 0xA0, 0xA0, 0x80, 0x80}
+
+function safe_px(x, y)
+    if x >= 0 and x <= 63 and y >= 0 and y <= 31 then draw(spr_px, math.floor(x), math.floor(y)) end
+end
+
+function draw_line(x0, y0, x1, y1)
+    x0, y0 = math.floor(x0), math.floor(y0)
+    x1, y1 = math.floor(x1), math.floor(y1)
+    local dx, dy = math.abs(x1 - x0), math.abs(y1 - y0)
+    local sx, sy = (x0 < x1) and 1 or -1, (y0 < y1) and 1 or -1
+    local err = dx - dy
+    while true do
+        safe_px(x0, y0)
+        if x0 == x1 and y0 == y1 then break end
+        local e2 = 2 * err
+        if e2 > -dy then err = err - dy; x0 = x0 + sx end
+        if e2 < dx then err = err + dx; y0 = y0 + sy end
+    end
+end
+
+function generate_hole()
+    map = {}
+    local h = 15 + rnd(10)
+    for x = 0, 63 do
+        map[x] = h
+        if rnd(10) < 4 then h = h + (rnd(3) - 1) end
+        if h < 10 then h = 10 end
+        if h > 28 then h = 28 end
+    end
+    
+    -- Flat Tee (Left) and Flat Hole (Right)
+    for i = 2, 6 do map[i] = map[4] end
+    for i = 54, 58 do map[i] = map[56] end
+    
+    bx, by = 4, map[4] - 1
+    hx, hy = 56, map[56]
+    vx, vy = 0, 0
+    state = 0
+    power = 0
+    aim = -0.8
+end
+
+score = 0
+generate_hole()
+
+function vblank()
+    cls()
+    
+    -- INPUT & STATE
+    if state == 0 then
+        if key_pressed(4) then aim = aim - 0.05 end
+        if key_pressed(6) then aim = aim + 0.05 end
+        
+        if key_pressed(5) then
+            power = power + 0.1
+            if power > 5 then power = 5 end
+        elseif key_released(5) and power > 0.5 then
+            vx = math.cos(aim) * power
+            vy = math.sin(aim) * power
+            power = 0
+            state = 1
+            score = score + 1
+            sound_timer = 5
+        end
+    elseif state == 1 then
+        -- PHYSICS
+        vy = vy + 0.1 -- Gravity
+        bx = bx + vx
+        by = by + vy
+        
+        -- World Bounds
+        if bx < 0 then bx = 0; vx = -vx * 0.5 end
+        if bx > 63 then bx = 63; vx = -vx * 0.5 end
+        
+        local ix = math.floor(bx)
+        local ground = map[ix]
+        
+        -- Terrain Collision
+        if by >= ground then
+            by = ground - 1
+            -- Calculate slope to make ball roll down hills!
+            local slope = (map[math.min(63, ix + 1)] - map[math.max(0, ix - 1)]) / 2
+            
+            vy = -vy * 0.4
+            vx = vx * 0.7 - (slope * 0.2)
+            
+            if math.abs(vy) < 0.2 and math.abs(vx) < 0.1 then
+                vx, vy = 0, 0
+                state = 0
+                -- Did it sink in the hole?
+                if math.abs(bx - hx) < 3 then
+                    sound_timer = 20
+                    generate_hole()
+                end
+            end
+        end
+    end
+
+    -- RENDER TERRAIN
+    for x = 0, 63 do draw_line(x, map[x], x, 31) end
+    
+    -- RENDER FLAG, BALL, & UI
+    draw(spr_flag, hx, hy - 5)
+    safe_px(bx, by)
+    
+    if state == 0 then
+        for l = 3, 12, 3 do safe_px(bx + math.cos(aim)*l, by + math.sin(aim)*l) end
+        if power > 0 then draw_line(bx, by, bx - math.cos(aim)*power*2, by - math.sin(aim)*power*2) end
+    end
+    
+    local d = bcd(score)
+    draw(get_sprite(d[2]), 2, 2)
+    draw(get_sprite(d[3]), 7, 2)
+end

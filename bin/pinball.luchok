@@ -1,0 +1,250 @@
+-- =====================================
+-- GAME: Luchok Pinball
+-- Controls: 4 (Left Flip), 6 (Right Flip), 5 (Plunger)
+-- =====================================
+
+spr_px = {0x80}
+spr_bumper = {0x60, 0x90, 0x90, 0x60}
+spr_bumper_hit = {0x60, 0xF0, 0xF0, 0x60}
+
+function init()
+    bx = 60
+    by = 30
+    vx = 0
+    vy = 0
+    
+    state = 0 -- 0: Plunger, 1: Play
+    plunger_pow = 0
+    score = 0
+    
+    -- Custom input tracking to bypass OS keyboard repeat quirks!
+    k4 = false
+    k5 = false
+    k6 = false
+    
+    bumpers = {
+        {x = 22, y = 6, timer = 0},
+        {x = 34, y = 6, timer = 0},
+        {x = 28, y = 14, timer = 0}
+    }
+end
+
+init()
+
+function safe_px(x, y)
+    if x >= 0 and x <= 63 and y >= 0 and y <= 31 then
+        draw(spr_px, math.floor(x), math.floor(y))
+    end
+end
+
+function draw_line(x0, y0, x1, y1)
+    x0, y0 = math.floor(x0), math.floor(y0)
+    x1, y1 = math.floor(x1), math.floor(y1)
+    local dx = math.abs(x1 - x0)
+    local dy = math.abs(y1 - y0)
+    local sx = (x0 < x1) and 1 or -1
+    local sy = (y0 < y1) and 1 or -1
+    local err = dx - dy
+    
+    while true do
+        safe_px(x0, y0)
+        if x0 == x1 and y0 == y1 then break end
+        local e2 = 2 * err
+        if e2 > -dy then
+            err = err - dy
+            x0 = x0 + sx
+        end
+        if e2 < dx then
+            err = err + dx
+            y0 = y0 + sy
+        end
+    end
+end
+
+function vblank()
+    cls()
+    
+    -- =====================================
+    -- 1. ROCK-SOLID INPUT TRACKING
+    -- =====================================
+    if key_pressed(4) then k4 = true end
+    if key_released(4) then k4 = false end
+    
+    if key_pressed(6) then k6 = true end
+    if key_released(6) then k6 = false end
+    
+    if key_pressed(5) then k5 = true end
+    if key_released(5) then k5 = false end
+
+    -- Flipper Y-coordinates (28 is the pivot point)
+    local l_ty = k4 and 24 or 31
+    local r_ty = k6 and 24 or 31
+
+    -- =====================================
+    -- 2. PHYSICS UPDATE
+    -- =====================================
+    if state == 0 then
+        -- Plunger Mode
+        bx = 61
+        by = 30
+        
+        -- Charge plunger while holding 5
+        if k5 then
+            plunger_pow = plunger_pow + 0.15
+            if plunger_pow > 5.0 then plunger_pow = 5.0 end
+        end
+        
+        -- Release plunger
+        if key_released(5) then
+            vy = -plunger_pow
+            state = 1
+            sound_timer = 15
+        end
+        
+    elseif state == 1 then
+        -- Gravity & Friction
+        vy = vy + 0.08
+        vx = vx * 0.99
+        vy = vy * 0.99
+        
+        bx = bx + vx
+        by = by + vy
+        
+        -- =====================================
+        -- 3. PLAYFIELD COLLISION
+        -- =====================================
+        -- Outer Walls
+        if bx < 1 then bx = 1; vx = math.abs(vx) * 0.8 end
+        if bx > 62 then bx = 62; vx = -math.abs(vx) * 0.8 end
+        if by < 1 then by = 1; vy = math.abs(vy) * 0.8 end
+        
+        -- Plunger Lane Wall
+        if by > 10 then
+            if bx >= 58 and bx < 60 and vx < 0 then 
+                bx = 60; vx = math.abs(vx) * 0.5 
+            elseif bx <= 58 and bx > 56 and vx > 0 then 
+                bx = 56; vx = -math.abs(vx) * 0.5 
+            end
+        end
+        
+        -- Top Right Curve (Ejects ball perfectly into playfield)
+        if by < 6 and bx >= 58 and vy < 0 then
+            vx = -2.0
+            vy = 0.5
+        end
+
+        -- Left Slanted Drain Wall
+        if bx < 16 then
+            local dy = 20 + (bx / 16) * 8
+            if by >= dy - 1 then
+                by = dy - 1
+                vy = -0.2
+                vx = 0.8
+            end
+        end
+        
+        -- Right Slanted Drain Wall
+        if bx > 44 and bx <= 58 then
+            local dy = 28 - ((bx - 44) / 14) * 8
+            if by >= dy - 1 then
+                by = dy - 1
+                vy = -0.2
+                vx = -0.8
+            end
+        end
+
+        -- =====================================
+        -- 4. FLIPPER COLLISION (Math Lerp)
+        -- =====================================
+        if bx >= 16 and bx <= 28 then
+            local t = (bx - 16) / 12
+            local fy = 28 + (l_ty - 28) * t
+            if by >= fy - 1 and by <= fy + 2 and vy > 0 then
+                by = fy - 1
+                if k4 then 
+                    vy = -2.5; vx = vx + 1.0; sound_timer = 5
+                else 
+                    vy = -vy * 0.3 
+                end
+            end
+        end
+        
+        if bx >= 32 and bx <= 44 then
+            local t = (44 - bx) / 12
+            local fy = 28 + (r_ty - 28) * t
+            if by >= fy - 1 and by <= fy + 2 and vy > 0 then
+                by = fy - 1
+                if k6 then 
+                    vy = -2.5; vx = vx - 1.0; sound_timer = 5
+                else 
+                    vy = -vy * 0.3 
+                end
+            end
+        end
+
+        -- =====================================
+        -- 5. BUMPER COLLISION
+        -- =====================================
+        for i = 1, 3 do
+            local bmp = bumpers[i]
+            local cx = bmp.x + 2
+            local cy = bmp.y + 2
+            
+            local dx = bx - cx
+            local dy = by - cy
+            local dist = math.sqrt(dx*dx + dy*dy)
+            
+            if dist < 4 then
+                vx = (dx / dist) * 2.5
+                vy = (dy / dist) * 2.5
+                bmp.timer = 10
+                score = score + 1
+                sound_timer = 15
+            end
+        end
+
+        -- Gutter / Death Reset
+        if by > 32 then
+            -- Keep score, just reset ball!
+            local s = score 
+            init() 
+            score = s
+        end
+    end
+
+    -- =====================================
+    -- 6. RENDERING PLAYFIELD
+    -- =====================================
+    draw_line(0,0, 0,31)   
+    draw_line(63,0, 63,31) 
+    draw_line(0,0, 63,0)   
+    
+    draw_line(58, 10, 58, 31) 
+    draw_line(0, 20, 16, 28)  
+    draw_line(58, 20, 44, 28) 
+    
+    draw_line(16, 28, 28, l_ty) 
+    draw_line(44, 28, 32, r_ty) 
+
+    for i = 1, 3 do
+        local bmp = bumpers[i]
+        if bmp.timer > 0 then
+            draw(spr_bumper_hit, bmp.x, bmp.y)
+            bmp.timer = bmp.timer - 1
+        else
+            draw(spr_bumper, bmp.x, bmp.y)
+        end
+    end
+    
+    if state == 0 then
+        local p_y = 30 + math.floor(plunger_pow)
+        draw_line(60, p_y, 62, p_y)
+        draw_line(61, p_y, 61, 31)
+    end
+    
+    safe_px(bx, by)
+    
+    local d_sco = bcd(score)
+    draw(get_sprite(d_sco[2]), 2, 2)
+    draw(get_sprite(d_sco[3]), 7, 2)
+end

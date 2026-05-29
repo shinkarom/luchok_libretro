@@ -18,11 +18,13 @@ function init()
     pipe_x = 64
     
     pipe_gap_y = 10
-    gap_size = 12 
+    gap_size = 16 
     
     score = 0
     scene = 0
     frames = 0
+	
+	key_5_was_pressed = false
 end
 
 init()
@@ -42,11 +44,16 @@ function vblank()
         return
     end
     
-    -- INPUT: Check every single frame for maximum responsiveness
-    if key_released(5) then
-        bat_vy = -3 -- A stronger jump to counteract the slower tick rate
+    -- INPUT: Snappy "Just Pressed" logic
+    local key_5_is_pressed = key_pressed(5)
+    
+    if key_5_is_pressed and not key_5_was_pressed then
+        bat_vy = -3 -- Jump immediately on press
         sound_timer = 2
     end
+    
+    -- Save the state for the next frame
+    key_5_was_pressed = key_5_is_pressed
 
     -- LOGIC: Slowed down to run every 4 frames (15 Updates Per Second)
     frames = frames + 1

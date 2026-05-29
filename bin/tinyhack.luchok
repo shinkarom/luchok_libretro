@@ -23,31 +23,31 @@ function generate_dungeon()
     p_x = 1
     p_y = 1
     
-    -- Our game board is 16 columns (0-15) and 7 rows (0-6).
-    -- We leave row 7 (pixels 28-31) for the UI/HUD.
-    for i = 0, (16 * 7) - 1 do 
+    -- Our game board is 16 columns (0-15) and 6 rows (0-5).
+    -- We leave pixels 24-31 (bottom area) completely clear for the UI/HUD.
+    for i = 0, (16 * 6) - 1 do 
         map[i] = 0 -- 0 = Floor
     end
     
     -- Draw borders
     for x = 0, 15 do 
         map[x] = 1               -- Top Wall
-        map[6 * 16 + x] = 1      -- Bottom Wall
+        map[5 * 16 + x] = 1      -- Bottom Wall (Now at row 5)
     end
-    for y = 0, 6 do 
+    for y = 0, 5 do 
         map[y * 16] = 1          -- Left Wall
         map[y * 16 + 15] = 1     -- Right Wall
     end
     
     -- Scatter random inner walls
-    for i = 1, 25 do
+    for i = 1, 20 do
         local rx = 2 + rnd(11)
-        local ry = 2 + rnd(3)
+        local ry = 2 + rnd(2)    -- Only rows 2 and 3
         map[ry * 16 + rx] = 1
     end
     
-    -- Place Stairs near the bottom right
-    map[5 * 16 + 14] = 2 -- 2 = Stairs
+    -- Place Stairs near the bottom right (Row 4 to stay inside the wall)
+    map[4 * 16 + 14] = 2 -- 2 = Stairs
     
     -- Spawn Enemies (More enemies on higher levels)
     local enemy_count = 2 + level
@@ -55,7 +55,7 @@ function generate_dungeon()
     
     for i = 1, enemy_count do
         local ex = 3 + rnd(10)
-        local ey = 1 + rnd(4)
+        local ey = 1 + rnd(3)    -- Spawn in rows 1, 2, or 3
         -- Only place on floor
         if map[ey * 16 + ex] == 0 then
             table.insert(enemies, {x = ex, y = ey, hp = 2})
@@ -117,10 +117,10 @@ end
 function vblank()
     cls()
     
-    -- GAME OVER
+    -- GAME OVER SCENE
     if scene == 1 then
         local d = bcd(level)
-        -- Show "Level Reached"
+        -- Show "Level Reached" in the middle of the screen
         draw(get_sprite(d[2]), 25, 12)
         draw(get_sprite(d[3]), 30, 12)
         
@@ -136,7 +136,7 @@ function vblank()
     if key_released(6) then try_move(1, 0) end  -- Right
 
     -- RENDER MAP
-    for y = 0, 6 do
+    for y = 0, 5 do
         for x = 0, 15 do
             local tile = map[y * 16 + x]
             if tile == 1 then
@@ -155,12 +155,13 @@ function vblank()
     -- RENDER PLAYER
     draw(spr_player, p_x * 4, p_y * 4)
     
-    -- RENDER HUD (Bottom 4 pixels)
-    draw(spr_heart, 0, 28)
+    -- RENDER HUD
+    -- Safely at Y=26, taking up pixels 26-30 so it doesn't wrap around the 32px screen!
+    draw(spr_heart, 0, 26)
     local hp_digits = bcd(p_hp)
-    draw(get_sprite(hp_digits[3]), 6, 28)
+    draw(get_sprite(hp_digits[3]), 6, 26)
     
     local lvl_digits = bcd(level)
-    draw(get_sprite(lvl_digits[2]), 54, 28)
-    draw(get_sprite(lvl_digits[3]), 59, 28)
+    draw(get_sprite(lvl_digits[2]), 54, 26)
+    draw(get_sprite(lvl_digits[3]), 59, 26)
 end
