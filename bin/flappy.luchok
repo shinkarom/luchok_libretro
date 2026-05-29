@@ -1,0 +1,114 @@
+-- =====================================
+-- GAME: Flappy Luchok v1.1
+-- Controls: 5 to Flap/Start
+-- =====================================
+
+-- 8x3 Bat Sprite
+spr_bat = {0x18, 0x3C, 0x7E}
+
+-- Generate a solid 32-byte array for our pipes
+spr_pipe = {}
+for i = 1, 32 do 
+    spr_pipe[i] = 0xFF 
+end
+
+function init()
+    bat_y = 12
+    bat_vy = 0
+    pipe_x = 64
+    
+    pipe_gap_y = 10
+    gap_size = 12 
+    
+    score = 0
+    scene = 0
+    frames = 0
+end
+
+init()
+
+function vblank()
+    -- FIXED: Always clear the screen FIRST thing every frame!
+    cls() 
+
+    -- GAME OVER SCENE
+    if scene == 1 then
+        local d = bcd(score)
+        draw(get_sprite(d[1]), 20, 15)
+        draw(get_sprite(d[2]), 25, 15)
+        draw(get_sprite(d[3]), 30, 15)
+        
+        if key_released(5) then init() end
+        return
+    end
+    
+    -- INPUT: Check every single frame for maximum responsiveness
+    if key_released(5) then
+        bat_vy = -3 -- A stronger jump to counteract the slower tick rate
+        sound_timer = 2
+    end
+
+    -- LOGIC: Slowed down to run every 4 frames (15 Updates Per Second)
+    frames = frames + 1
+    if frames % 4 == 0 then
+        -- Gravity
+        bat_vy = bat_vy + 1
+        -- Terminal velocity so we don't fall too fast
+        if bat_vy > 3 then bat_vy = 3 end 
+        
+        bat_y = bat_y + bat_vy
+        
+        -- Move pipe left
+        pipe_x = pipe_x - 1
+        
+        -- Score point
+        if pipe_x == 10 then 
+            if score < 255 then score = score + 1 end
+            sound_timer = 5 
+        end
+        
+        -- Respawn pipe
+        if pipe_x < -8 then
+            pipe_x = 64
+            pipe_gap_y = 2 + rnd(12)
+        end
+        
+        -- COLLISION: Floor and Ceiling
+        if bat_y < 0 or bat_y > 29 then
+            scene = 1
+            sound_timer = 30
+        end
+        
+        -- COLLISION: Pipes (Bat is at X=10 to 18)
+        if pipe_x < 18 and pipe_x > 2 then
+            if bat_y < pipe_gap_y or bat_y + 3 > pipe_gap_y + gap_size then
+                scene = 1
+                sound_timer = 30
+            end
+        end
+    end
+
+    -- RENDER
+    -- Safely clamp bat_y
+    local draw_y = bat_y
+    if draw_y < 0 then draw_y = 0 end
+    if draw_y > 29 then draw_y = 29 end
+    
+    draw(spr_bat, 10, draw_y)
+    
+    -- Draw pipes safely using start and len parameters
+    if pipe_x >= 0 and pipe_x <= 63 then
+        
+        -- Top Pipe 
+        if pipe_gap_y > 0 then
+            draw(spr_pipe, pipe_x, 0, 1, pipe_gap_y)
+        end
+        
+        -- Bottom Pipe 
+        local bottom_y = pipe_gap_y + gap_size
+        local bottom_len = 32 - bottom_y
+        if bottom_len > 0 then
+            draw(spr_pipe, pipe_x, bottom_y, 1, bottom_len)
+        end
+    end
+end

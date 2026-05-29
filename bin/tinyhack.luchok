@@ -1,0 +1,166 @@
+-- =====================================
+-- GAME: TinyHack (A Micro-Roguelike)
+-- Controls: 2, 4, 6, 8 (Movement/Attack)
+-- =====================================
+
+-- 4x4 Sprites (Left-aligned in the byte)
+spr_player = {0x60, 0x90, 0x90, 0x60} -- Circle
+spr_wall   = {0xF0, 0x90, 0x90, 0xF0} -- Hollow Box
+spr_enemy  = {0xA0, 0x40, 0xA0, 0x00} -- Little bug
+spr_stairs = {0x80, 0xC0, 0xE0, 0xF0} -- Staircase
+spr_heart  = {0xA0, 0xE0, 0x40, 0x00} -- HP Icon
+
+function init_game()
+    p_hp = 9
+    level = 1
+    generate_dungeon()
+    scene = 0
+end
+
+function generate_dungeon()
+    map = {}
+    enemies = {}
+    p_x = 1
+    p_y = 1
+    
+    -- Our game board is 16 columns (0-15) and 7 rows (0-6).
+    -- We leave row 7 (pixels 28-31) for the UI/HUD.
+    for i = 0, (16 * 7) - 1 do 
+        map[i] = 0 -- 0 = Floor
+    end
+    
+    -- Draw borders
+    for x = 0, 15 do 
+        map[x] = 1               -- Top Wall
+        map[6 * 16 + x] = 1      -- Bottom Wall
+    end
+    for y = 0, 6 do 
+        map[y * 16] = 1          -- Left Wall
+        map[y * 16 + 15] = 1     -- Right Wall
+    end
+    
+    -- Scatter random inner walls
+    for i = 1, 25 do
+        local rx = 2 + rnd(11)
+        local ry = 2 + rnd(3)
+        map[ry * 16 + rx] = 1
+    end
+    
+    -- Place Stairs near the bottom right
+    map[5 * 16 + 14] = 2 -- 2 = Stairs
+    
+    -- Spawn Enemies (More enemies on higher levels)
+    local enemy_count = 2 + level
+    if enemy_count > 8 then enemy_count = 8 end
+    
+    for i = 1, enemy_count do
+        local ex = 3 + rnd(10)
+        local ey = 1 + rnd(4)
+        -- Only place on floor
+        if map[ey * 16 + ex] == 0 then
+            table.insert(enemies, {x = ex, y = ey, hp = 2})
+        end
+    end
+end
+
+init_game()
+
+-- Handles player movement and combat
+function try_move(dx, dy)
+    local nx = p_x + dx
+    local ny = p_y + dy
+    
+    -- Check for enemy in target square
+    for i, e in pairs(enemies) do
+        if e.x == nx and e.y == ny then
+            -- Attack enemy
+            e.hp = e.hp - 1
+            sound_timer = 2
+            
+            -- Enemy counter-attacks if it survives, otherwise it dies
+            if e.hp <= 0 then
+                table.remove(enemies, i)
+            else
+                p_hp = p_hp - 1
+                sound_timer = 10
+            end
+            check_death()
+            return -- Turn ends after attacking
+        end
+    end
+    
+    -- Check map tile
+    local tile = map[ny * 16 + nx]
+    if tile == 0 then
+        -- Move to empty floor
+        p_x = nx
+        p_y = ny
+        -- Random chance to heal when walking (1 in 20)
+        if rnd(20) == 0 and p_hp < 9 then p_hp = p_hp + 1 end 
+    elseif tile == 2 then
+        -- Hit stairs! Next level!
+        level = level + 1
+        sound_timer = 15
+        generate_dungeon()
+    else
+        -- Hit a wall (Do nothing, turn doesn't end)
+    end
+end
+
+function check_death()
+    if p_hp <= 0 then
+        scene = 1
+        sound_timer = 40
+    end
+end
+
+function vblank()
+    cls()
+    
+    -- GAME OVER
+    if scene == 1 then
+        local d = bcd(level)
+        -- Show "Level Reached"
+        draw(get_sprite(d[2]), 25, 12)
+        draw(get_sprite(d[3]), 30, 12)
+        
+        if key_released(5) then init_game() end
+        return
+    end
+
+    -- TURN-BASED INPUT
+    -- By using key_released, the game naturally pauses and waits for the player!
+    if key_released(2) then try_move(0, -1) end -- Up
+    if key_released(8) then try_move(0, 1) end  -- Down
+    if key_released(4) then try_move(-1, 0) end -- Left
+    if key_released(6) then try_move(1, 0) end  -- Right
+
+    -- RENDER MAP
+    for y = 0, 6 do
+        for x = 0, 15 do
+            local tile = map[y * 16 + x]
+            if tile == 1 then
+                draw(spr_wall, x * 4, y * 4)
+            elseif tile == 2 then
+                draw(spr_stairs, x * 4, y * 4)
+            end
+        end
+    end
+    
+    -- RENDER ENEMIES
+    for i = 1, #enemies do
+        draw(spr_enemy, enemies[i].x * 4, enemies[i].y * 4)
+    end
+    
+    -- RENDER PLAYER
+    draw(spr_player, p_x * 4, p_y * 4)
+    
+    -- RENDER HUD (Bottom 4 pixels)
+    draw(spr_heart, 0, 28)
+    local hp_digits = bcd(p_hp)
+    draw(get_sprite(hp_digits[3]), 6, 28)
+    
+    local lvl_digits = bcd(level)
+    draw(get_sprite(lvl_digits[2]), 54, 28)
+    draw(get_sprite(lvl_digits[3]), 59, 28)
+end

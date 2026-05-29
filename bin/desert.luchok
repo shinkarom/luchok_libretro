@@ -1,0 +1,102 @@
+-- =====================================
+-- GAME: Desert Dash v1.1
+-- =====================================
+
+-- 8x8 Player (A little running character)
+spr_player = { 0x18, 0x3C, 0x7E, 0xFF, 0xFF, 0x5A, 0x24, 0x24 }
+-- 8x8 Cactus Obstacle
+spr_cactus = { 0x10, 0x50, 0x54, 0x7C, 0x38, 0x38, 0x38, 0x38 }
+-- Ground Line (Solid line across screen)
+spr_ground = { 0xFF } 
+
+function reset()
+    py = 20
+    vy = 0
+    gravity = 1
+    
+    -- Start strictly inside screen bounds (x: 0-63)
+    obs_x = 55 
+    obs_speed = 2
+    
+    score = 0
+    tick = 0
+    game_over = false
+end
+
+reset()
+
+function vblank()
+    if game_over then
+        if key_pressed(5) then reset() end
+        return
+    end
+
+    -- Use a tick timer to slow down game logic to ~20 Updates Per Second
+    tick = tick + 1
+    if tick % 3 == 0 then
+        if score < 255 then
+            score = score + 1 
+        end
+
+        -- Physics
+        py = py + vy
+        vy = vy + gravity
+
+        -- Ground collision
+        if py >= 20 then
+            py = 20
+            vy = 0
+            -- Jump (W key)
+            if key_pressed(5) then
+                vy = -5 -- Reduced velocity so we don't shoot past the ceiling
+                sound_timer = 2
+            end
+        end
+
+        -- Move obstacle
+        obs_x = obs_x - obs_speed
+        
+        -- Wrap obstacle strictly before it hits negative x
+        if obs_x <= 0 then
+            obs_x = 55 
+        end
+
+        -- Player Collision Check
+        if obs_x < 14 and obs_x > 2 and py > 14 then
+            game_over = true
+            sound_timer = 20
+        end
+    end
+
+    -- RENDER
+    cls()
+    
+    -- STRICT BOUNDS CHECKING to prevent RetroArch crashes!
+    local safe_py = py
+    if safe_py < 0 then safe_py = 0 end
+    if safe_py > 24 then safe_py = 24 end -- 31 minus 8 pixel height
+    
+    -- Draw Player safely
+    draw(spr_player, 8, safe_py)
+    
+    -- Draw Cactus safely
+    if obs_x >= 0 and obs_x <= 55 then
+        draw(spr_cactus, obs_x, 20)
+    end
+    
+    -- Draw Ground
+    for i=0, 7 do
+        draw(spr_ground, i * 8, 28)
+    end
+    
+    -- Draw Score
+    local digits = bcd(score)
+    draw(get_sprite(digits[2]), 52, 2)
+    draw(get_sprite(digits[3]), 58, 2)
+    
+    if game_over then
+        draw(get_sprite(digits[1]), 22, 12)
+        draw(get_sprite(digits[2]), 28, 12)
+        draw(get_sprite(digits[3]), 34, 12)
+    end
+end
